@@ -4,8 +4,11 @@
  * Description: A plugin to generate and assign tags to posts based on content using the Gemini API with customizable quantity.
  * Version: 1.0
  * Author: Anuj Pandey
- * License: GPL2
- */
+ * Author URI:  https://github.com/lesswp/wpless-post-tag-generator
+ * License:     GPLv2 or later
+ * License URI: http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+ * 
+  */
 
 // Exit if accessed directly
 if (!defined('ABSPATH')) {
