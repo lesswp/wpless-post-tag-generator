@@ -12,7 +12,7 @@ jQuery(document).ready(function ($) {
                 action: 'generate_tags',
                 post_id: postId,
                 tag_count: tagCount,
-                _wpnonce: wpvars.nonce // Secure the request
+                _wpnonce: wpvars.nonce, // Secure the request
             },
             success: function (response) {
                 if (response.success) {
@@ -24,7 +24,7 @@ jQuery(document).ready(function ($) {
             },
             error: function () {
                 alert('Error generating tags.');
-            }
+            },
         });
     });
 });
