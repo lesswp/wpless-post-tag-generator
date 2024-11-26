@@ -10,29 +10,20 @@
  * 
   */
 
-// Exit if accessed directly
-if (!defined('ABSPATH')) {
+// Exit if accessed directlyif (!defined('ABSPATH')) {
     exit;
 }
 
 // Enqueue CSS and JS for the backend
-// Enqueue the JS and CSS files for the backend
 function wpless_post_tag_generator_enqueue_assets() {
     global $pagenow;
     // Enqueue the JS and CSS files only on the post edit page
     if ('post.php' === $pagenow || 'post-new.php' === $pagenow) {
         wp_enqueue_script('wpless-post-tag-generator-js', plugin_dir_url(__FILE__) . 'assets/js/wpless-post-tag-generator.js', array('jquery'), null, true);
         wp_enqueue_style('wpless-post-tag-generator-css', plugin_dir_url(__FILE__) . 'assets/css/wpless-post-tag-generator.css');
-
-        // Localize the script with post ID and AJAX URL
-        wp_localize_script('wpless-post-tag-generator-js', 'wpvars', array(
-            'ajax_url' => admin_url('admin-ajax.php'), // The URL to handle AJAX requests
-            'post_id'  => get_the_ID() // Get the current post ID
-        ));
     }
 }
 add_action('admin_enqueue_scripts', 'wpless_post_tag_generator_enqueue_assets');
-
 
 // Add the "Generate Tags" button and quantity input field
 function add_generate_tags_button_and_quantity_input() {
@@ -52,40 +43,36 @@ add_action('edit_form_after_title', 'add_generate_tags_button_and_quantity_input
 
 // AJAX handler to generate tags for the post with specified quantity
 function handle_generate_tags() {
-    // Verify nonce
-    if (!isset($_POST['_wpnonce']) || !wp_verify_nonce($_POST['_wpnonce'], 'generate_tags_nonce')) {
-        wp_send_json_error(['message' => 'Invalid nonce']);
+    if (!isset($_POST['post_id']) || !is_numeric($_POST['post_id'])) {
+        wp_send_json_error(array('message' => 'Invalid post ID'));
         return;
     }
 
     $post_id = intval($_POST['post_id']);
-    $tag_count = isset($_POST['tag_count']) ? intval($_POST['tag_count']) : 10;
-
-    if ($tag_count < 5 || $tag_count > 10) {
-        wp_send_json_error(['message' => 'Tag count must be between 5 and 10']);
-        return;
-    }
-
     $post_content = get_post_field('post_content', $post_id);
+    $tag_quantity = isset($_POST['tag_quantity']) ? intval($_POST['tag_quantity']) : 10;
+
     if (empty($post_content)) {
-        wp_send_json_error(['message' => 'No content found for this post']);
+        wp_send_json_error(array('message' => 'No content found for this post'));
         return;
     }
 
-    $tags = generate_tags_from_gemini_api($post_content, $tag_count);
-    if (empty($tags)) {
-        wp_send_json_error(['message' => 'Error generating tags']);
+    // Generate tags from the Gemini API
+    $tags = generate_tags_from_gemini_api($post_content, $tag_quantity);
+
+    if (count($tags) < $tag_quantity) {
+        wp_send_json_error(array('message' => 'Not enough tags generated. Please try again later.'));
         return;
     }
 
     wp_set_post_tags($post_id, $tags);
 
-    wp_send_json_success([
+    wp_send_json_success(array(
         'message' => 'Tags generated successfully!',
-        'tags'    => $tags,
-    ]);
+        'tags' => $tags,
+        'tag_count' => count($tags)
+    ));
 }
-
 add_action('wp_ajax_generate_tags', 'handle_generate_tags');
 
 // Function to call Gemini API to generate tags based on post content
@@ -123,7 +110,7 @@ function generate_tags_from_gemini_api($post_content, $quantity) {
         }
     }
 
-    return []; 
+    return [];
 }
 
 // Add a settings page to enter the Gemini API Key
