@@ -13,15 +13,23 @@ if (!defined('ABSPATH')) {
 }
 
 // Enqueue CSS and JS for the backend
+// Enqueue the JS and CSS files for the backend
 function wpless_post_tag_generator_enqueue_assets() {
     global $pagenow;
     // Enqueue the JS and CSS files only on the post edit page
     if ('post.php' === $pagenow || 'post-new.php' === $pagenow) {
         wp_enqueue_script('wpless-post-tag-generator-js', plugin_dir_url(__FILE__) . 'assets/js/wpless-post-tag-generator.js', array('jquery'), null, true);
         wp_enqueue_style('wpless-post-tag-generator-css', plugin_dir_url(__FILE__) . 'assets/css/wpless-post-tag-generator.css');
+
+        // Localize the script with post ID and AJAX URL
+        wp_localize_script('wpless-post-tag-generator-js', 'wpvars', array(
+            'ajax_url' => admin_url('admin-ajax.php'), // The URL to handle AJAX requests
+            'post_id'  => get_the_ID() // Get the current post ID
+        ));
     }
 }
 add_action('admin_enqueue_scripts', 'wpless_post_tag_generator_enqueue_assets');
+
 
 // Add the "Generate Tags" button and quantity input field
 function add_generate_tags_button_and_quantity_input() {

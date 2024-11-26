@@ -4,7 +4,7 @@ jQuery(document).ready(function($) {
     // Click event handler for the "Generate Tags" button
     $('#generate-tags-button').on('click', function(event) {
         event.preventDefault(); // Prevent default button behavior
-        var postId = wpvars.post_id;
+        var postId = wpvars.post_id; // Access post ID from localized wpvars
         var tagQuantity = $('#tag-quantity').val(); // Get the quantity input value
 
         console.log('Button clicked for post ID:', postId, 'with tag quantity:', tagQuantity);
@@ -14,7 +14,7 @@ jQuery(document).ready(function($) {
 
         // Send AJAX request to the server to generate tags
         $.ajax({
-            url: wpvars.ajax_url,
+            url: wpvars.ajax_url, // Use the localized AJAX URL
             type: 'POST',
             data: {
                 action: 'generate_tags', // Custom action for generating tags
