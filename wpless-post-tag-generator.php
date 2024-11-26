@@ -123,7 +123,7 @@ function generate_tags_from_gemini_api($post_content, $quantity) {
         }
     }
 
-    return [];
+    return []; 
 }
 
 // Add a settings page to enter the Gemini API Key
