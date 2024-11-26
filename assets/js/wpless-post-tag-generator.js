@@ -1,39 +1,28 @@
-jQuery(document).ready(function($) {
-    console.log("Backend JavaScript loaded");
+jQuery(document).ready(function ($) {
+    $('#generate-tags-button').on('click', function (e) {
+        e.preventDefault();
 
-    // Click event handler for the "Generate Tags" button
-    $('#generate-tags-button').on('click', function(event) {
-        event.preventDefault(); // Prevent default button behavior
-        var postId = wpvars.post_id; // Access post ID from localized wpvars
-        var tagQuantity = $('#tag-quantity').val(); // Get the quantity input value
+        var postId = $('#post_ID').val();
+        var tagCount = $('#tag-quantity-input').val();
 
-        console.log('Button clicked for post ID:', postId, 'with tag quantity:', tagQuantity);
-
-        // Show a loading message or spinner (optional)
-        $('#generate-tags-container').append('<p id="loading-message">Generating tags, please wait...</p>');
-
-        // Send AJAX request to the server to generate tags
         $.ajax({
-            url: wpvars.ajax_url, // Use the localized AJAX URL
+            url: wpvars.ajax_url,
             type: 'POST',
             data: {
-                action: 'generate_tags', // Custom action for generating tags
+                action: 'generate_tags',
                 post_id: postId,
-                tag_quantity: tagQuantity
+                tag_count: tagCount,
+                _wpnonce: wpvars.nonce // Secure the request
             },
-            success: function(response) {
-                $('#loading-message').remove(); // Remove loading message
-
+            success: function (response) {
                 if (response.success) {
-                    alert(response.data.message + " (" + response.data.tag_count + " tags generated)");
-                    // Add the tags to the tag input field (comma-separated)
+                    alert(response.data.message);
                     $('#tagsdiv-post_tag input').val(response.data.tags.join(', '));
                 } else {
                     alert('Error: ' + response.data.message);
                 }
             },
-            error: function() {
-                $('#loading-message').remove(); // Remove loading message
+            error: function () {
                 alert('Error generating tags.');
             }
         });

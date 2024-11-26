@@ -52,36 +52,40 @@ add_action('edit_form_after_title', 'add_generate_tags_button_and_quantity_input
 
 // AJAX handler to generate tags for the post with specified quantity
 function handle_generate_tags() {
-    if (!isset($_POST['post_id']) || !is_numeric($_POST['post_id'])) {
-        wp_send_json_error(array('message' => 'Invalid post ID'));
+    // Verify nonce
+    if (!isset($_POST['_wpnonce']) || !wp_verify_nonce($_POST['_wpnonce'], 'generate_tags_nonce')) {
+        wp_send_json_error(['message' => 'Invalid nonce']);
         return;
     }
 
     $post_id = intval($_POST['post_id']);
-    $post_content = get_post_field('post_content', $post_id);
-    $tag_quantity = isset($_POST['tag_quantity']) ? intval($_POST['tag_quantity']) : 10;
+    $tag_count = isset($_POST['tag_count']) ? intval($_POST['tag_count']) : 10;
 
-    if (empty($post_content)) {
-        wp_send_json_error(array('message' => 'No content found for this post'));
+    if ($tag_count < 5 || $tag_count > 10) {
+        wp_send_json_error(['message' => 'Tag count must be between 5 and 10']);
         return;
     }
 
-    // Generate tags from the Gemini API
-    $tags = generate_tags_from_gemini_api($post_content, $tag_quantity);
+    $post_content = get_post_field('post_content', $post_id);
+    if (empty($post_content)) {
+        wp_send_json_error(['message' => 'No content found for this post']);
+        return;
+    }
 
-    if (count($tags) < $tag_quantity) {
-        wp_send_json_error(array('message' => 'Not enough tags generated. Please try again later.'));
+    $tags = generate_tags_from_gemini_api($post_content, $tag_count);
+    if (empty($tags)) {
+        wp_send_json_error(['message' => 'Error generating tags']);
         return;
     }
 
     wp_set_post_tags($post_id, $tags);
 
-    wp_send_json_success(array(
+    wp_send_json_success([
         'message' => 'Tags generated successfully!',
-        'tags' => $tags,
-        'tag_count' => count($tags)
-    ));
+        'tags'    => $tags,
+    ]);
 }
+
 add_action('wp_ajax_generate_tags', 'handle_generate_tags');
 
 // Function to call Gemini API to generate tags based on post content
