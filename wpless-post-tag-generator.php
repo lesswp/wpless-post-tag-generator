@@ -10,79 +10,48 @@
  * 
   */
 
-  if (!defined('ABSPATH')) {
-    exit; // Exit if accessed directly
+// Exit if accessed directly
+if (!defined('ABSPATH')) {
+    exit;
 }
 
-// Enqueue scripts and styles
-function wpless_enqueue_scripts($hook) {
-    if ($hook !== 'post.php' && $hook !== 'post-new.php') {
-        return;
+// Enqueue CSS and JS for the backend
+// Enqueue the JS and CSS files for the backend
+function wpless_post_tag_generator_enqueue_assets() {
+    global $pagenow;
+    // Enqueue the JS and CSS files only on the post edit page
+    if ('post.php' === $pagenow || 'post-new.php' === $pagenow) {
+        wp_enqueue_script('wpless-post-tag-generator-js', plugin_dir_url(__FILE__) . 'assets/js/wpless-post-tag-generator.js', array('jquery'), null, true);
+        wp_enqueue_style('wpless-post-tag-generator-css', plugin_dir_url(__FILE__) . 'assets/css/wpless-post-tag-generator.css');
+
+        // Localize the script with post ID and AJAX URL
+        wp_localize_script('wpless-post-tag-generator-js', 'wpvars', array(
+            'ajax_url' => admin_url('admin-ajax.php'), // The URL to handle AJAX requests
+            'post_id'  => get_the_ID() // Get the current post ID
+        ));
     }
-
-    wp_enqueue_script(
-        'wpless-post-tag-generator-js',
-        plugins_url('assets/js/wpless-post-tag-generator.js', __FILE__),
-        ['jquery'],
-        '1.0',
-        true
-    );
-
-    wp_localize_script('wpless-post-tag-generator-js', 'wpvars', [
-        'ajax_url' => admin_url('admin-ajax.php'),
-        'nonce'    => wp_create_nonce('generate_tags_nonce'),
-    ]);
 }
-add_action('admin_enqueue_scripts', 'wpless_enqueue_scripts');
+add_action('admin_enqueue_scripts', 'wpless_post_tag_generator_enqueue_assets');
 
-// Add Gemini API key field in settings
-function wpless_add_settings_page() {
-    add_options_page(
-        'WPLess Post Tag Generator',
-        'Tag Generator Settings',
-        'manage_options',
-        'wpless-post-tag-generator',
-        'wpless_settings_page'
-    );
+
+// Add the "Generate Tags" button and quantity input field
+function add_generate_tags_button_and_quantity_input() {
+    global $post;
+
+    if ('post' === $post->post_type) {
+        ?>
+        <div id="generate-tags-container" style="margin-top: 10px;">
+            <label for="tag-quantity">Tag Quantity:</label>
+            <input type="number" id="tag-quantity" value="10" min="1" max="20" style="width: 60px; margin-right: 10px;">
+            <button id="generate-tags-button" class="button">Generate Tags</button>
+        </div>
+        <?php
+    }
 }
-add_action('admin_menu', 'wpless_add_settings_page');
+add_action('edit_form_after_title', 'add_generate_tags_button_and_quantity_input');
 
-function wpless_settings_page() {
-    ?>
-    <div class="wrap">
-        <h1>WPLess Post Tag Generator</h1>
-        <form method="post" action="options.php">
-            <?php
-            settings_fields('wpless_settings');
-            do_settings_sections('wpless-post-tag-generator');
-            submit_button();
-            ?>
-        </form>
-    </div>
-    <?php
-}
-
-function wpless_register_settings() {
-    register_setting('wpless_settings', 'wpless_gemini_api_key');
-    add_settings_section('wpless_main_section', '', null, 'wpless-post-tag-generator');
-
-    add_settings_field(
-        'wpless_gemini_api_key',
-        'Gemini API Key',
-        'wpless_api_key_field',
-        'wpless-post-tag-generator',
-        'wpless_main_section'
-    );
-}
-add_action('admin_init', 'wpless_register_settings');
-
-function wpless_api_key_field() {
-    $api_key = get_option('wpless_gemini_api_key', '');
-    echo '<input type="text" name="wpless_gemini_api_key" value="' . esc_attr($api_key) . '" class="regular-text">';
-}
-
-// Handle tag generation request
-function wpless_handle_generate_tags() {
+// AJAX handler to generate tags for the post with specified quantity
+function handle_generate_tags() {
     // Verify nonce
     if (!isset($_POST['_wpnonce']) || !wp_verify_nonce($_POST['_wpnonce'], 'generate_tags_nonce')) {
         wp_send_json_error(['message' => 'Invalid nonce']);
@@ -103,7 +72,7 @@ function wpless_handle_generate_tags() {
         return;
     }
 
-    $tags = wpless_generate_tags_from_gemini_api($post_content, $tag_count);
+    $tags = generate_tags_from_gemini_api($post_content, $tag_count);
     if (empty($tags)) {
         wp_send_json_error(['message' => 'Error generating tags']);
         return;
@@ -116,32 +85,80 @@ function wpless_handle_generate_tags() {
         'tags'    => $tags,
     ]);
 }
-add_action('wp_ajax_generate_tags', 'wpless_handle_generate_tags');
 
-function wpless_generate_tags_from_gemini_api($content, $count) {
-    $api_key = get_option('wpless_gemini_api_key', '');
-    if (empty($api_key)) {
+add_action('wp_ajax_generate_tags', 'handle_generate_tags');
+
+// Function to call Gemini API to generate tags based on post content
+function generate_tags_from_gemini_api($post_content, $quantity) {
+    $api_key = get_option('gemini_api_key');
+    if (!$api_key) {
         return [];
     }
 
-    $response = wp_remote_post('https://api.gemini.example.com/generate-tags', [
-        'headers' => [
-            'Authorization' => 'Bearer ' . $api_key,
-            'Content-Type'  => 'application/json',
-        ],
-        'body'    => wp_json_encode([
-            'content' => $content,
-            'count'   => $count,
-        ]),
+    $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' . $api_key;
+    $prompt = "Give me $quantity tags for this post without any irrelevant word:" . $post_content;
+    $data = json_encode(['contents' => [['parts' => [['text' => $prompt]]]]]);
+
+    $response = wp_remote_post($url, [
+        'method'    => 'POST',
+        'body'      => $data,
+        'headers'   => ['Content-Type' => 'application/json']
     ]);
 
     if (is_wp_error($response)) {
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('Gemini API request failed: ' . $response->get_error_message());
-        }
+        error_log('Gemini API request failed: ' . $response->get_error_message());
         return [];
     }
 
-    $body = json_decode(wp_remote_retrieve_body($response), true);
-    return isset($body['tags']) ? $body['tags'] : [];
+    $response_body = wp_remote_retrieve_body($response);
+    $response_data = json_decode($response_body, true);
+
+    if (isset($response_data['candidates'][0]['content']['parts'][0]['text'])) {
+        $response_text = $response_data['candidates'][0]['content']['parts'][0]['text'];
+        preg_match_all('/\d+\.\s*([^\n]+)/', $response_text, $matches);
+
+        if (isset($matches[1])) {
+            $tags = array_slice($matches[1], 0, $quantity);
+            return $tags;
+        }
+    }
+
+    return [];
 }
+
+// Add a settings page to enter the Gemini API Key
+function wpless_post_tag_generator_menu() {
+    add_options_page('WPLess Post Tag Generator Settings', 'WPLess Post Tag Generator', 'manage_options', 'wpless-post-tag-generator-settings', 'wpless_post_tag_generator_settings_page');
+}
+add_action('admin_menu', 'wpless_post_tag_generator_menu');
+
+// Display the settings page
+function wpless_post_tag_generator_settings_page() {
+    ?>
+    <div class="wrap">
+        <h1>WPLess Post Tag Generator Settings</h1>
+        <form method="post" action="options.php">
+            <?php
+            settings_fields('wpless_post_tag_generator_options');
+            do_settings_sections('wpless-post-tag-generator-settings');
+            ?>
+            <table class="form-table">
+                <tr valign="top">
+                    <th scope="row">Gemini API Key</th>
+                    <td>
+                        <input type="password" name="gemini_api_key" value="<?php echo esc_attr(get_option('gemini_api_key')); ?>" class="regular-text" />
+                        <p class="description">Enter your Gemini API key here.</p>
+                    </td>
+                </tr>
+            </table>
+            <?php submit_button(); ?>
+        </form>
+    </div>
+    <?php
+}
+
+// Register the settings
+function wpless_post_tag_generator_register_settings() {
+    register_setting('wpless_post_tag_generator_options', 'gemini_api_key');
+}
+add_action('admin_init', 'wpless_post_tag_generator_register_settings');
