@@ -3,7 +3,7 @@
  * Plugin Name: WPLess Post Tag Generator
  * Description: A plugin to generate and assign tags to posts based on content using the Gemini API with customizable quantity.
  * Version: 1.0
- * Author: Your Name
+ * Author: Anuj Pandey
  * License: GPL2
  */
 

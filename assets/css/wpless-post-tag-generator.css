@@ -1,0 +1,22 @@
+#generate-tags-button {
+    padding: 10px 15px;
+    background-color: #0073aa;
+    color: white;
+    border: none;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+#generate-tags-button:hover {
+    background-color: #005f8d;
+}
+
+#loading-message {
+    color: #0073aa;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+#tag-quantity {
+    margin-right: 10px;
+}
